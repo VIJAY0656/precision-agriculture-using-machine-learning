@@ -1,5 +1,7 @@
 import string
 import bcrypt
+from google.cloud import storage
+from utils.gcs import upload_file, download_file, list_files
 from flask import Flask, redirect, render_template, url_for, request, Markup
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
@@ -10,6 +12,7 @@ from flask_bcrypt import Bcrypt
 from datetime import datetime
 import requests
 import numpy as np
+import json
 import pandas as pd
 import config
 import pickle
@@ -27,6 +30,9 @@ from utils.disease import disease_dic
 crop_recommendation_model_path = 'models/RandomForest.pkl'
 crop_recommendation_model = pickle.load(
     open(crop_recommendation_model_path, 'rb'))
+
+#BUCKET_NAME = "plant-disease-detection-1"
+BUCKET_NAME = "hackstorage"
 
 # Loading plant disease classification model
 
@@ -190,14 +196,29 @@ def aboutus():
 
 @app.route("/contact", methods=['GET', 'POST'])
 def contact():
-    if request.method=='POST':
+    """Handles contact form submissions and uploads them to GCS."""
+    if request.method == 'POST':
         name = request.form['name']
         email = request.form['email']
         text = request.form['text']
-        contacts = ContactUs(name=name, email=email, text=text)
-        db.session.add(contacts)
+
+        # Save to database
+        contact_entry = ContactUs(name=name, email=email, text=text)
+        db.session.add(contact_entry)
         db.session.commit()
-    
+
+        # Save to GCS as JSON
+        contact_data = {
+            "name": name,
+            "email": email,
+            "text": text,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        file_name = f"contacts/{name}_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.json"
+        file_obj = io.BytesIO(json.dumps(contact_data).encode('utf-8'))
+
+        upload_file(BUCKET_NAME, file_obj, file_name)
+
     return render_template("contact.html")
 
 @app.route("/login", methods=['GET', 'POST'])
@@ -367,6 +388,37 @@ def fert_recommend():
 def querydisplay():
     alltodo = ContactUs.query.all()
     return render_template("display.html",alltodo=alltodo)
+
+@app.route('/farm_map')
+def farm_map():
+    return render_template('farm_map.html')
+
+@app.route("/upload", methods=["POST"])
+def upload():
+    """Handles file upload to GCS"""
+    if "file" not in request.files:
+        return "No file uploaded", 400
+
+    file = request.files["file"]
+    file_name = file.filename
+
+    # Upload to GCS
+    upload_file(BUCKET_NAME, file, file_name)
+
+    return f"Uploaded {file_name} successfully!", 200
+
+@app.route("/download/<file_name>")
+def download(file_name):
+    """Handles file download from GCS"""
+    file_content = download_file(BUCKET_NAME, file_name)
+    return file_content, 200
+
+@app.route("/list")
+def list_gcs_files():
+    """Lists all files in GCS bucket"""
+    files = list_files(BUCKET_NAME)
+    return {"files": files}, 200
+
 
 @app.route("/AdminLogin", methods=['GET', 'POST'])
 def AdminLogin():

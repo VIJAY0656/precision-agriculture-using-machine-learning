@@ -1,0 +1,87 @@
+{% extends 'base.html' %} {% block title %} Farm Map {% endblock title %} {% block body %}
+
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" crossorigin="anonymous">
+    <style>
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: auto;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div style="text-align: center; margin-top: 20px;">
+        <h2>Farm Monitoring</h2>
+        <div id="map"></div>
+    </div>
+
+    <script>
+        function initMap() {
+            var farmLocation = { lat: 13.0827, lng: 80.2707 };  // Change this to actual farm coordinates
+            var map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 12,
+                center: farmLocation,
+            });
+
+            var marker = new google.maps.Marker({
+                position: farmLocation,
+                map: map,
+                title: "Farm Location"
+            });
+
+            var farmBoundary = new google.maps.Polygon({
+                paths: [
+                    { lat: 13.10, lng: 80.26 },
+                    { lat: 13.10, lng: 80.28 },
+                    { lat: 13.06, lng: 80.28 },
+                    { lat: 13.06, lng: 80.26 }
+                ],
+                strokeColor: "#FF0000",
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+                fillColor: "#FF0000",
+                fillOpacity: 0.35
+            });
+            farmBoundary.setMap(map);
+
+            function isInsideGeofence(lat, lng) {
+                var latLng = new google.maps.LatLng(lat, lng);
+                return google.maps.geometry.poly.containsLocation(latLng, farmBoundary);
+            }
+
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(position => {
+                    var userLocation = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    var userMarker = new google.maps.Marker({
+                        position: userLocation,
+                        map: map,
+                        icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png",
+                        title: "Your Location"
+                    });
+
+                    if (!isInsideGeofence(userLocation.lat, userLocation.lng)) {
+                        alert("You are outside the farm boundary!");
+                    }
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBE9etQoBjnLpfnGvXCRowtaUG9_O0X0lA&libraries=geometry&callback=initMap" async defer></script>
+
+</body>
+</html>
+{% endblock body %}
