@@ -1,8 +1,10 @@
 import string
 import bcrypt
+import os
+from bs4 import BeautifulSoup
 from google.cloud import storage
 from utils.gcs import upload_file, download_file, list_files
-from flask import Flask, redirect, render_template, url_for, request, Markup
+from flask import Flask, redirect, render_template, url_for, request, Markup,jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin, login_user, LoginManager, login_required, logout_user, current_user
 from wtforms import StringField, PasswordField, SubmitField
@@ -105,6 +107,38 @@ def weather_fetch(city_name):
         return temperature, humidity
     else:
         return None
+
+def fetch_weather_data():
+    latitude = 13.046375  # Fixed farm latitude
+    longitude = 80.234399  # Fixed farm longitude
+
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "hourly": ["temperature_2m", "relative_humidity_2m", "precipitation_probability"],
+        "timezone": "auto"
+    }
+    
+    response = requests.get(url, params=params)
+    data = response.json()
+
+    # Extract hourly data
+    hourly_data = []
+    for time, temp, humidity, precip in zip(
+        data['hourly']['time'],
+        data['hourly']['temperature_2m'],
+        data['hourly']['relative_humidity_2m'],
+        data['hourly']['precipitation_probability']
+    ):
+        hourly_data.append({
+            "time": time,
+            "temperature_2m": temp,
+            "relative_humidity_2m": humidity,
+            "precipitation_probability": precip
+        })
+
+    return hourly_data
 
 def predict_image(img, model=disease_model):
     """
@@ -242,6 +276,11 @@ def dashboard():
     title = 'dashboard'
     return render_template('dashboard.html',title=title)
 
+@app.route("/weather", methods=["GET"])
+def get_weather():
+    weather_data = fetch_weather_data()
+    return jsonify(weather_data)
+
 @ app.route('/logout',methods=['GET', 'POST'])
 @login_required
 def logout():
@@ -287,29 +326,68 @@ def disease_prediction():
     title = '- Disease Detection'
 
     if request.method == 'POST':
+        print("Form submitted!")  # Debug statement
+
         if 'file' not in request.files:
+            print("No file part in request!")  # Debug statement
             return redirect(request.url)
+        
         file = request.files.get('file')
         if not file:
+            print("No file selected!")  # Debug statement
             return render_template('disease.html', title=title)
+        
         try:
-            img = file.read()
+            print(f"File received: {file.filename}")  # Debug statement
 
-            prediction = predict_image(img)
+            # Save the uploaded file temporarily (optional)
+            upload_folder = 'static/uploads'
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            
+            file_path = os.path.join(upload_folder, file.filename)
+            file.save(file_path)
+            print(f"File saved to: {file_path}")  # Debug statement
 
-            prediction = Markup(str(disease_dic[prediction]))
-            return render_template('disease-result.html', prediction=prediction, title=title)
-        except:
-            pass
+            # Call your prediction function
+            with open(file_path, "rb") as image_file:
+                  image_bytes = image_file.read()
+
+            prediction = predict_image(image_bytes)  # Pass bytes instead of file path
+
+            print(f"Prediction: {prediction}")  # Debug statement
+
+            # Convert prediction to a human-readable format
+            raw_prediction = str(disease_dic[prediction])  # Get the raw HTML string
+            soup = BeautifulSoup(raw_prediction, "html.parser")
+            clean_prediction = soup.get_text(separator="\n")  # Convert <br> to newlines
+
+            prediction = Markup(clean_prediction)
+            #print(f"Formatted prediction: {prediction}")  # Debug statement
+
+            # Redirect to the disease_result route with the prediction
+            return redirect(url_for('disease_result', prediction=prediction, title=title))
+        except Exception as e:
+            print(f"Error: {e}")  # Debug statement
+            return render_template('disease.html', title=title, error="An error occurred while processing the image.")
+    
     return render_template('disease.html', title=title)
-
 
 # ===============================================================================================
 
 # RENDER PREDICTION PAGES
 
 # render crop recommendation result page
+@app.route('/disease-result')
+@login_required
+def disease_result():
+    prediction = request.args.get('prediction')
+    title = request.args.get('title', '- Disease Detection')
 
+    print(f"Prediction received: {prediction}")  # Debug statement
+    print(f"Title received: {title}")  # Debug statement
+
+    return render_template('disease-result.html', prediction=prediction, title=title)
 
 @ app.route('/crop-predict', methods=['POST'])
 def crop_prediction():
