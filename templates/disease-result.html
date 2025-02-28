@@ -1,4 +1,6 @@
- {% extends 'base.html' %} {% block body %}
+{% extends 'base.html' %}
+{% block title %} Disease Result {% endblock title %}
+{% block body %}
 
 <style>
     .mt-0 {
@@ -29,9 +31,9 @@
     <div class="hero-text">
         <p class="breadcrumbs text-white font-weight-bold"><span class="mr-2"><a href="{{ url_for('hello_world') }}"
                 class="text-white">Home /</a></span>
-            <span>crop-result</span>
+            <span>Disease Result</span>
         </p>
-        <h1 class="mb-0 bread font-weight-bold">Find out the disease having the plant</h1>
+        <h1 class="mb-0 bread font-weight-bold">Disease Prediction Result</h1>
     </div>
 </div>
 <!--/About us section-->
@@ -39,8 +41,8 @@
 <!-- second nav -->
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavAltMarkup" aria-controls="navbarNavAltMarkup" aria-expanded="false" aria-label="Toggle navigation">
-<span class="navbar-toggler-icon"></span>
-</button>
+        <span class="navbar-toggler-icon"></span>
+    </button>
     <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
         <div class="navbar-nav mx-auto">
             <a class="nav-item nav-link active" href="{{ url_for('dashboard') }}">Dashboard</a>
@@ -52,20 +54,24 @@
     </div>
 </nav>
 
+<!-- Prediction Result Section -->
 <div class="container py-2 mx-auto my-50 h-10 " style="margin: 9rem;">
     <div class="row">
         <div class="col-sm py-2 py-md-3">
             <div class="card card-body" style="justify-content: center; background-color:white">
+                <!-- Display the prediction result -->
                 <p class="text-center" style="color: green; font-size: 22px; font-weight: bold;">{{ prediction }}</p>
             </div>
         </div>
     </div>
+
+    <!-- Button to upload another image -->
+    <div class="text-center mt-4">
+        <a href="{{ url_for('disease_prediction') }}" class="btn btn-primary">Upload Another Image</a>
+    </div>
 </div>
 
-
-
 <!-- footer section start-->
-
 <footer class="page-footer font-small blue pt-5">
     <!-- Copyright -->
     <div class="footer-copyright text-center py-3 bg-dark text-light p-2" style="background-image: url(https://images.pexels.com/photos/5980/food-sunset-love-field.jpg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940);background-size: cover; height: 100px; background-position: center; position:center;">
@@ -73,9 +79,7 @@
             <div class="text-center text-white text-uppercase font-weight-bold">AGRI-GUARD FOR THE WIN!!!</div>
         </h5>
     </div>
-
     <!-- Copyright -->
 </footer>
-
 <!-- footer section end -->
 {% endblock %}
